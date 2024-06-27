@@ -1,0 +1,10 @@
+librosa
+pydub
+soundfile
+numpy
+scipy
+pyaudio
+pyqt5
+matplotlib
+sounddevice
+plotly
