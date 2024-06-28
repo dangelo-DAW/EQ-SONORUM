@@ -1,0 +1,8 @@
+[MASTER]
+init-hook='import sys; sys.path.append("./myenv/lib/python3.11/site-packages")'
+
+[MESSAGES CONTROL]
+disable=C0111,C0115,C0116,R0903  # Disables missing docstring and too few public methods warnings
+
+[FORMAT]
+max-line-length=100

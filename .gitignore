@@ -1,9 +1,3 @@
-# Ambiente virtuale
-myenv/
-
-# File Python
 __pycache__/
 *.pyc
-
-# File di configurazione IDE
-.vscode/
+myenv/
