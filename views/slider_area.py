@@ -30,6 +30,7 @@ class SliderArea(QWidget):
         self.layout = QGridLayout(self)
         self.setLayout(self.layout)
 
+        self.sliders = []
         self.quality_dials = []
         self.quality_labels = []
         self.lock_buttons = []
@@ -55,7 +56,8 @@ class SliderArea(QWidget):
     def toggle_lock(self, band_index, checked):
         self.model.lock_band(band_index, checked)
         self.lock_buttons[band_index].setText("🔓" if checked else "🔒")
-
+        self.sliders[band_index].setEnabled(not checked)  # Disabilita o abilita lo slider
+        
     def toggle_mute(self, band_index):
         is_muted = self.model.mutes[band_index]
         self.model.mute_band(band_index, not is_muted)
@@ -126,7 +128,8 @@ class SliderArea(QWidget):
             lock_button.toggled.connect(lambda checked, i=i: self.toggle_lock(i, checked))
 
             self.lock_buttons.append(lock_button)
-
+            self.sliders.append(slider)  # Aggiungi lo slider alla lista degli slider
+            
             quality_dial = QDial(self)
             quality_dial.setMinimum(1)
             quality_dial.setMaximum(20)
@@ -166,3 +169,23 @@ class SliderArea(QWidget):
             self.layout.addWidget(quality_dial, 4, i + 1, Qt.AlignCenter)
             self.layout.addWidget(quality_value_label, 5, i + 1, Qt.AlignCenter)
             self.layout.addWidget(mute_button, 6, i + 1, Qt.AlignCenter)
+
+    def reset(self):
+        # Resetta tutti gli slider ai valori predefiniti
+        for slider in self.sliders:
+            slider.setValue(0)  # Imposta ogni slider al valore predefinito (0 dB)
+        
+        # Resetta tutti i quality dial ai valori predefiniti
+        for dial in self.quality_dials:
+            dial.setValue(10)  # Imposta ogni quality dial al valore predefinito (5.0)
+        
+        # Resetta i pulsanti di mute e lock
+        for mute_button in self.mute_buttons:
+            mute_button.setChecked(False)  # Deseleziona il pulsante mute
+            mute_button.setStyleSheet("")  # Ripristina lo stile predefinito
+        
+        for lock_button in self.lock_buttons:
+            lock_button.setChecked(False)  # Deseleziona il pulsante lock
+            lock_button.setText("🔒")  # Ripristina il testo del lucchetto
+            corresponding_slider = self.sliders[self.lock_buttons.index(lock_button)]
+            corresponding_slider.setEnabled(True)  # Riabilita lo slider associato

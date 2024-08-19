@@ -1,10 +1,10 @@
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QMessageBox, QAction, QVBoxLayout, QSplitter, QWidget, QStatusBar,
-                             QPushButton, QHBoxLayout, QSlider, QLabel, QComboBox, QListWidget, QListWidgetItem, 
-                             QLineEdit, QInputDialog, QDialog, QFormLayout, QDialogButtonBox, QGroupBox)
+                             QPushButton, QHBoxLayout, QSlider, QLabel, QComboBox, QListWidget,
+                             QLineEdit, QDialog, QFormLayout, QDialogButtonBox, QGroupBox)
 from PyQt5.QtCore import QFileInfo, Qt
-from PyQt5.QtGui import QIcon, QPainter, QPixmap, QPalette
-from slider_area import SliderArea
-from music_player import MusicPlayer
+from PyQt5.QtGui import QIcon, QPainter, QPixmap
+from .slider_area import SliderArea
+from .music_player import MusicPlayer
 from models.audio_processor import AudioProcessor  # Assicurati che il modello sia nel percorso corretto
 from models.preset_model import PresetModel
 from controller.preset_controller import PresetController
@@ -15,7 +15,7 @@ class UIManager(QMainWindow):
         super().__init__()
 
         self.watermark = QPixmap('/home/claudio/Scrivania/EQ-SONORUM/views/images/noisy.png')  # Modifica con il percorso corretto dell'immagine di filigrana
-        self.applyStyleSheet('style.qss')
+        self.applyStyleSheet('views/style.qss')
 
         self.__currentFilePath = None  # Mantiene traccia del percorso del file corrente
         self.__isModified = False  # Mantiene traccia se ci sono modifiche non salvate
