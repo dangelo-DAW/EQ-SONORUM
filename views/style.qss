@@ -32,7 +32,7 @@ QDial::handle {
 }
 
 QPushButton::handle {
-    background-color: #3db216;
+    background-color: #28911c;
     border: 1px solid #5c5c5c;
 }
 
@@ -44,4 +44,24 @@ QLabel
 QPushButton:checked {
     background-color: #28911c;  /* Cambia colore quando attivato */
     color: white;
+}
+
+QGroupBox {
+    color: white;  /* Colore del testo */
+    border: 2px solid #ffffff;  /* Bordo bianco */
+    border-radius: 5px;  /* Angoli arrotondati */
+    margin-top: 10px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top center;  /* Posizione del titolo al centro */
+    padding: 0 3px;  /* Padding intorno al titolo */
+}
+
+/* Stile per le QListWidget */
+QListWidget {
+    background-color: white;  /* Colore di sfondo */
+    color: black;  /* Colore del testo */
+    border: none;  /* Nessun bordo */
 }

@@ -1,38 +1,16 @@
-from PyQt5.QtWidgets import QWidget, QGridLayout, QSlider, QLabel, QPushButton, QDial, QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QGridLayout, QSlider, QLabel, QPushButton, QDial, QHBoxLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainter, QPen
 
-class TickMarks(QWidget):
-    def __init__(self, slider, tick_interval, parent=None):
-        super().__init__(parent)
-        self.slider = slider
-        self.tick_interval = tick_interval
-        self.setFixedWidth(10)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        pen = QPen(Qt.gray)
-        pen.setWidth(2)
-        painter.setPen(pen)
-
-        slider_height = self.slider.height()
-        num_ticks = (self.slider.maximum() - self.slider.minimum()) // self.tick_interval
-        tick_spacing = slider_height / num_ticks
-
-        for i in range(num_ticks + 1):
-            y = int(i * tick_spacing)
-            painter.drawLine(0, y, self.width(), y)
-
 class SliderArea(QWidget):
-    def __init__(self, model, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.model = model
+        
         self.layout = QGridLayout(self)
         self.setLayout(self.layout)
 
         self.sliders = []
         self.quality_dials = []
-        self.quality_labels = []
         self.lock_buttons = []
         self.mute_buttons = []
 
@@ -53,42 +31,27 @@ class SliderArea(QWidget):
 
         self.add_band_controls(bands)
 
-    def toggle_lock(self, band_index, checked):
-        self.model.lock_band(band_index, checked)
-        self.lock_buttons[band_index].setText("🔓" if checked else "🔒")
-        self.sliders[band_index].setEnabled(not checked)  # Disabilita o abilita lo slider
-        
-    def toggle_mute(self, band_index):
-        is_muted = self.model.mutes[band_index]
-        self.model.mute_band(band_index, not is_muted)
-        button = self.mute_buttons[band_index]
-        
-        if not is_muted:
-            button.setStyleSheet("background-color: #28911c; color: white;")
-        else:
-            button.setStyleSheet("")
-    
     def create_gain_slider(self):
-        gain_slider = QSlider(Qt.Vertical, self)
-        gain_slider.setMinimum(-18)
-        gain_slider.setMaximum(18)
-        gain_slider.setValue(0)
-        gain_slider.setTickPosition(QSlider.NoTicks)
-        gain_slider.setFixedHeight(300)
+        self.gain_slider = QSlider(Qt.Vertical, self)
+        self.gain_slider.setMinimum(-18)
+        self.gain_slider.setMaximum(18)
+        self.gain_slider.setValue(0)
+        self.gain_slider.setTickPosition(QSlider.NoTicks)
+        self.gain_slider.setFixedHeight(300)
 
         gain_value_label = QLabel("0 dB", self)
         gain_value_label.setAlignment(Qt.AlignCenter)
-        gain_slider.valueChanged.connect(lambda value: gain_value_label.setText(f"{value} dB"))
+        self.gain_slider.valueChanged.connect(lambda value: gain_value_label.setText(f"{value} dB"))
 
         gain_label = QLabel("GAIN", self)
         gain_label.setAlignment(Qt.AlignCenter)
 
-        gain_ticks_left = TickMarks(gain_slider, tick_interval=2)
-        gain_ticks_right = TickMarks(gain_slider, tick_interval=2)
+        gain_ticks_left = TickMarks(self.gain_slider, tick_interval=2)
+        gain_ticks_right = TickMarks(self.gain_slider, tick_interval=2)
 
         gain_layout = QHBoxLayout()
         gain_layout.addWidget(gain_ticks_left)
-        gain_layout.addWidget(gain_slider)
+        gain_layout.addWidget(self.gain_slider)
         gain_layout.addWidget(gain_ticks_right)
 
         self.layout.addLayout(gain_layout, 1, 0, Qt.AlignCenter)
@@ -107,6 +70,8 @@ class SliderArea(QWidget):
         mute_label = QLabel("Mute:", self)
         mute_label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(mute_label, 6, 0, Qt.AlignCenter)
+
+        self.band_sliders = []  # Aggiunta di una lista per mantenere i riferimenti agli slider delle bande
 
         for i, (band, slider_name) in enumerate(bands):
             slider = QSlider(Qt.Vertical)
@@ -128,29 +93,26 @@ class SliderArea(QWidget):
             lock_button.toggled.connect(lambda checked, i=i: self.toggle_lock(i, checked))
 
             self.lock_buttons.append(lock_button)
-            self.sliders.append(slider)  # Aggiungi lo slider alla lista degli slider
+            self.sliders.append(slider)  # Aggiunta dello slider alla lista generale degli slider
+            self.band_sliders.append(slider)  # Aggiunta alla lista specifica degli slider delle bande
             
             quality_dial = QDial(self)
             quality_dial.setMinimum(1)
             quality_dial.setMaximum(20)
-            quality_dial.setValue(int(self.model.q_factors[i] * 2))
+            quality_dial.setValue(10)
             quality_dial.setFixedSize(50, 50)
             quality_dial.setNotchesVisible(True)
-            quality_dial.valueChanged.connect(lambda value, i=i: self.model.set_q_factor(i, value / 2))
 
             self.quality_dials.append(quality_dial)
 
-            quality_value_label = QLabel(f"{self.model.q_factors[i]:.1f}", self)
+            quality_value_label = QLabel(f"{5.0:.1f}", self)
             quality_value_label.setAlignment(Qt.AlignCenter)
             quality_dial.valueChanged.connect(lambda value, label=quality_value_label: label.setText(f"{value / 2:.1f}"))
-
-            self.quality_labels.append(quality_value_label)
 
             mute_button = QPushButton("🔇", self)
             mute_button.setCheckable(True)
             mute_button.setStyleSheet("padding: 5px; font-size: 14px;")
-            mute_button.setFixedSize(80, 25)  # Imposta una dimensione fissa solo per i pulsanti di mute
-            mute_button.toggled.connect(lambda checked, i=i: self.toggle_mute(i))
+            mute_button.setFixedSize(80, 25)
             
             self.mute_buttons.append(mute_button)
 
@@ -173,19 +135,77 @@ class SliderArea(QWidget):
     def reset(self):
         # Resetta tutti gli slider ai valori predefiniti
         for slider in self.sliders:
-            slider.setValue(0)  # Imposta ogni slider al valore predefinito (0 dB)
-        
+            slider.setValue(0)
+
+        # Resetta il gain
+        self.gain_slider.setValue(0)
+
         # Resetta tutti i quality dial ai valori predefiniti
         for dial in self.quality_dials:
-            dial.setValue(10)  # Imposta ogni quality dial al valore predefinito (5.0)
-        
+            dial.setValue(10)
+
         # Resetta i pulsanti di mute e lock
         for mute_button in self.mute_buttons:
-            mute_button.setChecked(False)  # Deseleziona il pulsante mute
-            mute_button.setStyleSheet("")  # Ripristina lo stile predefinito
-        
+            mute_button.setChecked(False)
+            mute_button.setStyleSheet("")
+
         for lock_button in self.lock_buttons:
-            lock_button.setChecked(False)  # Deseleziona il pulsante lock
-            lock_button.setText("🔒")  # Ripristina il testo del lucchetto
+            lock_button.setChecked(False)
+            lock_button.setText("🔒")
             corresponding_slider = self.sliders[self.lock_buttons.index(lock_button)]
-            corresponding_slider.setEnabled(True)  # Riabilita lo slider associato
+            corresponding_slider.setEnabled(True)
+            
+    def toggle_lock(self, band_index, checked):
+        """ Blocca o sblocca la banda specificata. """
+        self.lock_buttons[band_index].setText("🔓" if checked else "🔒")
+        self.sliders[band_index].setEnabled(not checked)
+    
+    def toggle_mute(self, band_index):
+        is_muted = self.mute_buttons[band_index].isChecked()
+        button = self.mute_buttons[band_index]
+    
+        if is_muted:
+            button.setStyleSheet("background-color: #28911c; color: white;")
+        else:
+            button.setStyleSheet("")
+
+    def get_gain_value(self):
+        return self.gain_slider.value()
+
+    def get_quality_factors(self):
+        return [dial.value() / 2 for dial in self.quality_dials]
+
+    def get_slider_bands(self):
+        return [slider.value() for slider in self.band_sliders]
+    
+    def set_gain(self, gain):
+        self.gain_slider.setValue(gain)
+    
+    def set_slider_band_values(self, values):
+        for i, value in enumerate(values):
+            self.sliders[i].setValue(value)
+    
+    def set_quality_factors(self, factors):
+        for i, factor in enumerate(factors):
+            self.quality_dials[i].setValue(int(factor * 2))
+
+class TickMarks(QWidget):
+    def __init__(self, slider, tick_interval, parent=None):
+        super().__init__(parent)
+        self.slider = slider
+        self.tick_interval = tick_interval
+        self.setFixedWidth(10)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        pen = QPen(Qt.gray)
+        pen.setWidth(2)
+        painter.setPen(pen)
+
+        slider_height = self.slider.height()
+        num_ticks = (self.slider.maximum() - self.slider.minimum()) // self.tick_interval
+        tick_spacing = slider_height / num_ticks
+
+        for i in range(num_ticks + 1):
+            y = int(i * tick_spacing)
+            painter.drawLine(0, y, self.width(), y)

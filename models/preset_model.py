@@ -1,34 +1,40 @@
 import json
+import os
 
 class PresetModel:
-    def __init__(self, preset_file=None):
-        self.preset_file = preset_file
-        self.presets = {"Genere Musicale": [], "Strumento Musicale": []}
-        if preset_file:
-            self.load_presets(preset_file)
+    def __init__(self):
+        self.presets = {
+            "Genere Musicale": [],
+            "Strumento Musicale": []
+        }
 
-    def load_presets(self, file_path):
-        """Carica i preset da un file JSON."""
-        with open(file_path, 'r') as file:
-            self.presets = json.load(file)
-
-    def save_presets(self, file_path=None):
-        """Salva i preset in un file JSON."""
-        if not file_path:
-            file_path = self.preset_file
-        with open(file_path, 'w') as file:
-            json.dump(self.presets, file, indent=4)
-
-    def add_preset(self, category, name):
-        """Aggiunge un preset a una categoria specifica."""
-        if category in self.presets and name not in self.presets[category]:
-            self.presets[category].append(name)
+    def add_preset(self, name, category, settings):
+       # Aggiunge un preset alla lista appropriata in base alla categoria
+        preset = {  "name": name,
+                    "category": category,
+                    "settings": settings,
+                }
+        self.presets[category].append(preset)
 
     def remove_preset(self, category, name):
-        """Rimuove un preset da una categoria specifica."""
-        if category in self.presets and name in self.presets[category]:
-            self.presets[category].remove(name)
+        self.presets[category] = [preset for preset in self.presets[category] if preset["name"] != name]
 
+    def get_all_presets(self):
+        return self.presets
+    
     def get_presets(self, category):
-        """Restituisce i preset di una categoria specifica."""
-        return self.presets.get(category, [])
+        return [preset["name"] for preset in self.presets[category]]
+    
+    def get_preset_by_name(self, name):
+        for category in self.presets:
+            for preset in self.presets[category]:
+                if preset["name"] == name:
+                    return preset
+        return None  # Preset non trovato
+    
+    def load_presets_from_json(self):
+        if os.path.exists(self.preset_file):
+            with open(self.preset_file, "r") as file:
+                data = json.load(file)
+                for preset in data:
+                    self.preset_model.add_preset(preset["name"], preset["category"], preset["settings"])

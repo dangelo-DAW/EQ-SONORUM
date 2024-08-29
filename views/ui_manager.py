@@ -1,14 +1,14 @@
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QMessageBox, QAction, QVBoxLayout, QSplitter, QWidget, QStatusBar,
-                             QPushButton, QHBoxLayout, QSlider, QLabel, QComboBox, QListWidget,
-                             QLineEdit, QDialog, QFormLayout, QDialogButtonBox, QGroupBox)
+                             QPushButton, QHBoxLayout, QSlider, QLabel, QComboBox, QListWidget, QGroupBox)
 from PyQt5.QtCore import QFileInfo, Qt
 from PyQt5.QtGui import QIcon, QPainter, QPixmap
 from .slider_area import SliderArea
 from .music_player import MusicPlayer
-from models.audio_processor import AudioProcessor  # Assicurati che il modello sia nel percorso corretto
-from models.preset_model import PresetModel
+from .preset_manager import PresetManager
 from controller.preset_controller import PresetController
-from models.equalizer_model import EqualizerModel
+from controller.file_controller import FileController
+from models.audio_processor import AudioProcessor 
+from models.preset_model import PresetModel
 
 class UIManager(QMainWindow):
     def __init__(self):
@@ -23,61 +23,19 @@ class UIManager(QMainWindow):
         self.setWindowTitle("EQ SONORUM")
         self.setGeometry(100, 100, 1200, 800)
 
-        # Creazione del modello e del controller dell'equalizzatore
-        self.equalizer_model = EqualizerModel()
-        
-        # Creazione del modello e del controller dei preset
+        self.file_controller = FileController(AudioProcessor(), self)
+        self.__musicPlayer = MusicPlayer()
+        self.__sliderArea = SliderArea()
         self.preset_model = PresetModel()
         self.preset_controller = PresetController(self.preset_model, self)
+        self.preset_manager = PresetManager(self.preset_controller, self)
         
-        # Creazione dei widget
-        self.__musicPlayer = MusicPlayer()
-        self.__sliderArea = SliderArea(self.equalizer_model)
-
         # Configurazione layout principale
         mainLayout = QVBoxLayout()
         splitter = QSplitter(Qt.Horizontal)
         splitter.addWidget(self.__sliderArea)
-
-        # Sezione dei preset (sul lato destro)
-        self.genre_preset_list = QListWidget(self)
-        self.instrument_preset_list = QListWidget(self)
-        self.populate_preset_lists()
-
-        # Aggiungi le liste dei preset al layout con dei gruppi
-        presetLayout = QVBoxLayout()
-
-        genreGroup = QGroupBox("Generi Musicali")
-        genreGroup.setFixedSize(200, 150)
-        genreGroupLayout = QVBoxLayout()
-        genreGroupLayout.addWidget(self.genre_preset_list)
-        genreGroup.setLayout(genreGroupLayout)
-        genreGroup.setStyleSheet("QGroupBox { color: white; }")  # Cambia il colore del testo a bianco
-        presetLayout.addWidget(genreGroup)
-
-        instrumentGroup = QGroupBox("Strumenti Musicali")
-        instrumentGroup.setFixedSize(200, 150)
-        instrumentGroupLayout = QVBoxLayout()
-        instrumentGroupLayout.addWidget(self.instrument_preset_list)
-        instrumentGroup.setLayout(instrumentGroupLayout)
-        instrumentGroup.setStyleSheet("QGroupBox { color: white; }")  # Cambia il colore del testo a bianco
-        presetLayout.addWidget(instrumentGroup)
-
-        # Pulsanti per gestire i preset
-        createPresetButton = QPushButton("New Preset")
-        createPresetButton.clicked.connect(self.create_preset)
+        splitter.addWidget(self.preset_manager)
         
-        deletePresetButton = QPushButton("Delete")
-        deletePresetButton.clicked.connect(self.delete_preset)
-
-        buttonLayout = QVBoxLayout()
-        buttonLayout.addWidget(createPresetButton)
-        buttonLayout.addWidget(deletePresetButton)
-        presetLayout.addLayout(buttonLayout)
-
-        splitter.addWidget(QWidget())  # Aggiungi uno spazio tra i controlli degli slider e la sezione dei preset
-        splitter.widget(1).setLayout(presetLayout)  # Aggiungi il layout dei preset allo splitter
-
         # Pulsante "Add File..." per caricare un brano
         addButton = QPushButton("Add File...")
         addButton.setFixedSize(100, 24)
@@ -130,16 +88,17 @@ class UIManager(QMainWindow):
         centralWidget = QWidget()
         centralWidget.setLayout(mainLayout)
         self.setCentralWidget(centralWidget)
+        
 
         # Aggiunta della barra di stato
         self.setStatusBar(QStatusBar())
 
         # Creazione dei menu e delle azioni
         self.createMenus()
-
-        # Configurazione del doppio clic sui preset
-        self.genre_preset_list.itemDoubleClicked.connect(self.select_preset)
-        self.instrument_preset_list.itemDoubleClicked.connect(self.select_preset)
+        
+        
+    def open_preset_manager(self):
+        self.preset_manager.exec_()
 
     def createMenus(self):
         menuBar = self.menuBar()
@@ -157,85 +116,45 @@ class UIManager(QMainWindow):
         saveAsAction = QAction("Salva con nome...", self)
         saveAsAction.triggered.connect(self.saveFileAs)
         fileMenu.addAction(saveAsAction)
-        
-        # Aggiunta della voce di menu per esportare il file
-        exportAction = QAction('Esporta File', self)
-        exportAction.triggered.connect(self.showExportDialog)
-        fileMenu.addAction(exportAction)
-
-        # Aggiungi opzioni di caricamento/salvataggio preset
-        presetMenu = menuBar.addMenu("&Preset")
-
-        loadPresetAction = QAction("Carica Preset", self)
-        loadPresetAction.triggered.connect(self.load_presets)
-        presetMenu.addAction(loadPresetAction)
-
-        savePresetAction = QAction("Salva Preset", self)
-        savePresetAction.triggered.connect(self.save_presets)
-        presetMenu.addAction(savePresetAction)
 
     def loadFile(self):
         options = QFileDialog.Options()
-        filePath, _ = QFileDialog.getOpenFileName(self, "Carica File", "", 
-                                                  "Audio Files (*.wav *.mp3 *.flac)", options=options)
+        filePath, _ = QFileDialog.getOpenFileName(self, "Carica File", "", "Audio Files (*.wav *.mp3 *.flac)", options=options)
         if filePath:
             self.__currentFilePath = filePath
+            self.file_controller.load_file(filePath)
             fileTitle = QFileInfo(filePath).fileName()  # Ottieni il nome del file
-            self.__musicPlayer.setTitle(fileTitle)  # Imposta il titolo nel player
-            self.__musicPlayer.playFile(filePath)
+            self.__musicPlayer.set_title(fileTitle)  # Imposta il titolo nel player
+            self.__musicPlayer.play_file(filePath)
             self.__isModified = False  # Reset delle modifiche poiché è stato caricato un nuovo file
-
-    def applyEqualization(self, settings):
-        self.__isModified = True  # Segna il file come modificato
 
     def saveFile(self):
         if self.__currentFilePath:
-            self.__saveToFile(self.__currentFilePath)
+            self.file_controller.save_file(self.__currentFilePath)
         else:
             self.saveFileAs()
 
     def saveFileAs(self):
         options = QFileDialog.Options()
-        filePath, _ = QFileDialog.getSaveFileName(self, "Salva File", "", 
-                                                  "Audio Files (*.wav *.mp3 *.flac)", options=options)
+        filePath, _ = QFileDialog.getSaveFileName(self, "Salva File", "", "Audio Files (*.wav *.mp3 *.flac)", options=options)
         if filePath:
-            self.__saveToFile(filePath)
-
-    def __saveToFile(self, filePath):
-        try:
             self.__currentFilePath = filePath
-            self.__isModified = False
-            QMessageBox.information(self, "Salvato", f"File salvato con successo in {filePath}")
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Errore durante il salvataggio del file: {str(e)}")
+            self.file_controller.save_file(filePath)
             
     def showExportDialog(self):
         if not self.__currentFilePath:
             QMessageBox.warning(self, "Errore", "Nessun file caricato.")
             return
 
-        # Seleziona il formato di esportazione
         format_combo = QComboBox(self)
         format_combo.addItems(["mp3", "wav", "flac"])
-
-        # Seleziona il percorso di salvataggio
         output_format = format_combo.currentText()
         output_file, _ = QFileDialog.getSaveFileName(self, "Salva File", "", f"*.{output_format}")
 
-        if not output_file:
-            return
-
-        # Aggiungi estensione se non è già inclusa
-        if not output_file.endswith(f".{output_format}"):
-            output_file += f".{output_format}"
-
-        try:
-            # Crea l'istanza del processore e salva il file
-            processor = AudioProcessor(self.__currentFilePath)
-            processor.export_audio(output_file, format=output_format)
-            QMessageBox.information(self, "Successo", f"File esportato con successo in {output_file}!")
-        except Exception as e:
-            QMessageBox.critical(self, "Errore", f"Errore durante l'esportazione: {str(e)}")
+        if output_file:
+            if not output_file.endswith(f".{output_format}"):
+                output_file += f".{output_format}"
+            self.file_controller.export_file(output_file, output_format)
 
     def resetAll(self):
         self.__sliderArea.reset()
@@ -243,7 +162,7 @@ class UIManager(QMainWindow):
         self.__isModified = False
 
     def changeVolume(self, value):
-        self.__musicPlayer.setVolume(value)
+        self.__musicPlayer.setVolume(value)  # Modificato da setVolume a set_volume
         self.volumeLabel.setText(f"{value}%")  # Aggiorna il valore del volume
         # Cambia l'icona del pulsante del volume in base al valore
         if value == 0:
@@ -265,6 +184,7 @@ class UIManager(QMainWindow):
             # Aggiorna lo slider del volume
             volumeSlider = self.findChild(QSlider)
             volumeSlider.setValue(self.previousVolume)
+
 
     def setVolumeMute(self):
         self.__musicPlayer.setVolume(0)
@@ -303,105 +223,40 @@ class UIManager(QMainWindow):
         watermark_y = self.height() - watermark_scaled.height()   # Posiziona in basso con un margine
         painter.drawPixmap(watermark_x, watermark_y, watermark_scaled)
     
-    def populate_preset_lists(self):
-        """Popola le liste dei preset dall'istanza PresetModel."""
-        self.genre_preset_list.clear()
-        self.instrument_preset_list.clear()
+    def update_audio_view(self, file_path):
+        fileTitle = QFileInfo(file_path).fileName()
+        self.__musicPlayer.set_title(fileTitle)
+        self.__musicPlayer.play_file(file_path)
 
-        for preset in self.preset_model.get_presets("Genere Musicale"):
-            self.genre_preset_list.addItem(preset)
+    def mark_as_unmodified(self):
+        self.__isModified = False
 
-        for preset in self.preset_model.get_presets("Strumento Musicale"):
-            self.instrument_preset_list.addItem(preset)
-    
-    def load_presets(self):
-        options = QFileDialog.Options()
-        filePath, _ = QFileDialog.getOpenFileName(self, "Carica Preset", "", 
-                                                  "Preset Files (*.json)", options=options)
-        if filePath:
-            self.preset_controller.load_presets(filePath)
-            self.populate_preset_lists()
-
-    def save_presets(self):
-        options = QFileDialog.Options()
-        filePath, _ = QFileDialog.getSaveFileName(self, "Salva Preset", "", 
-                                                  "Preset Files (*.json)", options=options)
-        if filePath:
-            self.preset_controller.save_presets(filePath)
-
-    def create_preset(self):
-        dialog = PresetManagerDialog(self.preset_model.presets, self)
-        if dialog.exec_() == QDialog.Accepted:
-            self.preset_model.presets = dialog.get_presets()
-            self.populate_preset_lists()
-
-    def delete_preset(self):
-        currentGenreItem = self.genre_preset_list.currentItem()
-        currentInstrumentItem = self.instrument_preset_list.currentItem()
-
-        if currentGenreItem and currentGenreItem.text() in self.preset_model.get_presets("Genere Musicale"):
-            self.preset_model.remove_preset("Genere Musicale", currentGenreItem.text())
-        elif currentInstrumentItem and currentInstrumentItem.text() in self.preset_model.get_presets("Strumento Musicale"):
-            self.preset_model.remove_preset("Strumento Musicale", currentInstrumentItem.text())
-        else:
-            QMessageBox.warning(self, "Errore", "Seleziona un preset valido da eliminare.")
-            return
-
-        self.populate_preset_lists()
-
-    def select_preset(self):
-        current_genre_item = self.genre_preset_list.currentItem()
-        current_instrument_item = self.instrument_preset_list.currentItem()
-
-        if current_genre_item:
-            QMessageBox.information(self, "Preset Selezionato", f"Hai selezionato il preset: {current_genre_item.text()}")
-        elif current_instrument_item:
-            QMessageBox.information(self, "Preset Selezionato", f"Hai selezionato il preset: {current_instrument_item.text()}")
-        else:
-            QMessageBox.warning(self, "Errore", "Seleziona un preset valido.")
-
-class PresetManagerDialog(QDialog):
-    def __init__(self, presets, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Gestione Preset")
-        self.setModal(True)
-        self.presets = presets
-
-        # Layout del form
-        layout = QFormLayout()
-
-        # Campo di input per il nome del preset
-        self.presetNameInput = QLineEdit(self)
-        layout.addRow("Nome Preset:", self.presetNameInput)
-
-        # Dropdown per selezionare la categoria del preset
-        self.categoryCombo = QComboBox(self)
-        self.categoryCombo.addItems(["Genere Musicale", "Strumento Musicale"])
-        layout.addRow("Categoria:", self.categoryCombo)
-
-        # Pulsanti di gestione
-        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.save_preset)
-        buttons.rejected.connect(self.reject)
-
-        layout.addRow(buttons)
-        self.setLayout(layout)
-
-    def save_preset(self):
-        name = self.presetNameInput.text().strip()
-        category = self.categoryCombo.currentText()
+    def show_message(self, message):
+        QMessageBox.information(self, "Messaggio", message)
+            
+    def show_error(self, error_message):
+        QMessageBox.critical(self, "Errore", error_message)
         
-        if not name:
-            QMessageBox.warning(self, "Errore", "Il nome del preset non può essere vuoto.")
-            return
+    def updateUI(self, gain, slider_values, quality_factors):
+        self.__musicPlayer.setGain(gain)
+        self.__sliderArea.setSliderValues(slider_values)
+        self.__sliderArea.setQualityFactor(quality_factors)
         
-        # Aggiungi o aggiorna il preset
-        if name not in self.presets[category]:
-            self.presets[category].append(name)
-        else:
-            QMessageBox.warning(self, "Errore", "Il preset esiste già.")
+    def get_current_settings(self):
+        """
+        Raccoglie i valori attuali dei controlli dell'interfaccia e li restituisce come dizionario.
+        """
+        settings = {
+            "gain": self.get_gain_value(),
+            "slider_bands": self.get_slider_band_values(),
+            "quality_factors": self.get_quality_factors()
+        }
 
-        self.accept()  # Chiude il dialogo con successo
+        return settings
 
-    def get_presets(self):
-        return self.presets
+    def update_interface_with_preset(self, preset):
+        # Aggiorna i controlli dell'interfaccia con i valori del preset
+        self.__sliderArea.set_gain(preset["settings"]["gain"])
+        self.__sliderArea.set_slider_band_values(preset["settings"]["slider_bands"])
+        self.__sliderArea.set_quality_factors(preset["settings"]["quality_factors"])
+
